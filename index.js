@@ -1,6 +1,6 @@
 const Discord = require("discord.js");
 const { prefix, token } = require("./config.js");
-const ytdl = require("ytdl-core");
+const ytdl = require('ytdl-core-discord');
 
 // create the client
 const client = new Discord.Client();
@@ -67,7 +67,7 @@ async function execute(message, serverQueue) {
 	}
 }
 // PLAY
-function play(guild, song) {
+async function play(guild, song) {
 	const serverQueue = queue.get(guild.id);
 	if (!song) {
 		serverQueue.voiceChannel.leave();
@@ -76,7 +76,8 @@ function play(guild, song) {
 	}
 	// DISPATCHER
 	const dispatcher = serverQueue.connection
-		.play(ytdl(song.url))
+		// .play(ytdl(song.url))
+		.play(await ytdl(song.url), { type: 'opus' })
 		.on("finish", () => {
 			serverQueue.songs.shift();
 			play(guild, serverQueue.songs[0]);
@@ -130,15 +131,35 @@ client.on("message", async (message) => {
 	const serverQueue = queue.get(message.guild.id);
 
 	// Define the commands of the bot
-	if (message.content.startsWith(`${prefix}play`) || message.content.startsWith(`${prefix}p`)) {
+	// !play || !p
+	if (
+		message.content.startsWith(`${prefix}play`) ||
+		message.content.startsWith(`${prefix}p`)
+	) {
 		console.log("entro al playyyy------------");
 		execute(message, serverQueue);
 		return;
-	} else if (message.content.startsWith(`${prefix}skip`) || message.content.startsWith(`${prefix}sk`)) {
+		// !skip || !sk
+	} else if (
+		message.content.startsWith(`${prefix}skip`) ||
+		message.content.startsWith(`${prefix}sk`)
+	) {
 		skip(message, serverQueue);
 		return;
-	} else if (message.content.startsWith(`${prefix}stop`) || message.content.startsWith(`${prefix}st`)) {
+		// !stop || !st
+	} else if (
+		message.content.startsWith(`${prefix}stop`) ||
+		message.content.startsWith(`${prefix}st`)
+	) {
 		stop(message, serverQueue);
+		return;
+	}
+	// !turraka 
+	else if (
+		message.content.startsWith(`${prefix}turraka`)
+	) {
+        message.content = "!turraka https://www.youtube.com/watch?v=Jt1gcpPfINA"
+		execute(message, serverQueue);
 		return;
 	} else {
 		message.channel.send("You need to enter a valid command!");
