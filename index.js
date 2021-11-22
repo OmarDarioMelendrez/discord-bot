@@ -97,63 +97,100 @@ async function search(message, serverQueue) {
 	let response = await youtubesearchapi.GetListByKeyword(
 		seachStr,
 		[false],
-		[1]
+		[5]
 	);
-	let videoUrl = `https://www.youtube.com/watch?v=${response.items[0].id}`;
-	// get the video url info
-	const songInfo = await ytdl.getInfo(videoUrl);
-	const song = {
-		title: songInfo.videoDetails.title,
-		url: songInfo.videoDetails.video_url,
+	// console.log('LOG:', response)
+	const embedObj = {
+		color: '8EB8AD',
+		title: 'Select a video to listen on',
+		description: `Send from 0 to ${response.items.length - 1}.`,
+		fields: response.items.map((it, ind) => {
+			return {
+				name: `Autor: ${it.channelTitle}`,
+				value: `${ind}): ${it.title}`,
+			}
+		}),
+		timestamp: new Date(),
+		footer: {
+			text: '< 30 segs ...'
+		} 
 	};
+	// Mostrar opciones
+	await message.channel.send({ embed: embedObj });
 
-	const voiceChannel = message.member.voice.channel;
-	if (!voiceChannel)
-		return message.channel.send(
-			"You need to be in a voice channel to play music!"
-		);
-	const permissions = voiceChannel.permissionsFor(message.client.user);
-	if (!permissions.has("CONNECT") || !permissions.has("SPEAK")) {
-		return message.channel.send(
-			"I need the permissions to join> and speak in your voice channel!"
-		);
-	}
+	// Se pasa al objeto mensaje
+	const isBetweenOptions = ({ content }) => (content >= 0 && content < response.items.length);
+	const collector = message.channel.createMessageCollector( isBetweenOptions, { max: 1, time: 30000} );
+	
+	let videoIndexSelected = 0;
+	collector.on('end', async(collected) => {
+		// console.log('SELECTED', videoIndexSelected)
+		// console.log('size', collected.size)
 
-	// verify if has a serverQueue
-	if (!serverQueue) {
-		// Creating the contract for our queue
-		const queueContruct = {
-			textChannel: message.channel,
-			voiceChannel: voiceChannel,
-			connection: null,
-			songs: [],
-			volume: 5,
-			playing: true,
-		};
-		// Setting the queue using our contract
-		queue.set(message.guild.id, queueContruct);
-		// Pushing the song to our songs array
-		queueContruct.songs.push(song);
-
-		try {
-			// Here we try to join the voicechat and save our connection into our object.
-			var connection = await voiceChannel.join();
-			queueContruct.connection = connection;
-			// Calling the play function to start a song
-			play(message.guild, queueContruct.songs[0]);
-		} catch (err) {
-			// Printing the error message if the bot fails to join the voicechat
-			console.log(err);
-			queue.delete(message.guild.id);
-			return message.channel.send(err);
+		if (collected.size !== 0) {
+			// console.log('HEREE', collected)
+			videoIndexSelected = +(collected.first().content)
 		}
-	} else {
-		serverQueue.songs.push(song);
-		console.log(serverQueue.songs);
-		return message.channel.send(
-			`${song.title} has been added to the queue!`
-		);
-	}
+		// console.log('SELECTED', videoIndexSelected)
+		const itemChoosed = response.items[videoIndexSelected];
+	
+		let videoUrl = `https://www.youtube.com/watch?v=${itemChoosed.id}`;
+		// get the video url info
+		const songInfo = await ytdl.getInfo(videoUrl);
+		const song = {
+			title: songInfo.videoDetails.title,
+			url: songInfo.videoDetails.video_url,
+		};
+	
+		const voiceChannel = message.member.voice.channel;
+		if (!voiceChannel)
+			return message.channel.send(
+				"You need to be in a voice channel to play music!"
+			);
+		const permissions = voiceChannel.permissionsFor(message.client.user);
+		if (!permissions.has("CONNECT") || !permissions.has("SPEAK")) {
+			return message.channel.send(
+				"I need the permissions to join> and speak in your voice channel!"
+			);
+		}
+	
+		// verify if has a serverQueue
+		if (!serverQueue) {
+			// Creating the contract for our queue
+			const queueContruct = {
+				textChannel: message.channel,
+				voiceChannel: voiceChannel,
+				connection: null,
+				songs: [],
+				volume: 5,
+				playing: true,
+			};
+			// Setting the queue using our contract
+			queue.set(message.guild.id, queueContruct);
+			// Pushing the song to our songs array
+			queueContruct.songs.push(song);
+	
+			try {
+				// Here we try to join the voicechat and save our connection into our object.
+				var connection = await voiceChannel.join();
+				queueContruct.connection = connection;
+				// Calling the play function to start a song
+				play(message.guild, queueContruct.songs[0]);
+			} catch (err) {
+				// Printing the error message if the bot fails to join the voicechat
+				console.log(err);
+				queue.delete(message.guild.id);
+				return message.channel.send(err);
+			}
+		} else {
+			serverQueue.songs.push(song);
+			console.log(serverQueue.songs);
+			return message.channel.send(
+				`${song.title} has been added to the queue!`
+			);
+		}
+	});
+
 }
 // STOP
 function stop(message, serverQueue) {
